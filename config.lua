@@ -1,7 +1,7 @@
 Config = {}
 
 -- Send a notification when the door is successfully locked/unlocked.
-Config.Notify = false
+Config.Notify = true
 
 -- Draw a persistent notification while in-range of a door, with a prompt to lock/unlock.
 Config.DrawTextUI = false
@@ -15,7 +15,7 @@ Config.DrawSprite = {
 }
 
 -- Allow the following ACL principal to use 'command.doorlock'.
-Config.CommandPrincipal = 'group.admin'
+Config.CommandPrincipal = 'group.superadmin'
 
 -- Allow players with 'command.doorlock' permission to open any doors.
 Config.PlayerAceAuthorised = false
