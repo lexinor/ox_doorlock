@@ -4,7 +4,7 @@ Config = {}
 Config.Notify = true
 
 -- Draw a persistent notification while in-range of a door, with a prompt to lock/unlock.
-Config.DrawTextUI = false
+Config.DrawTextUI = true
 
 Config.DrawSprite = {
     -- Unlocked
