@@ -167,6 +167,15 @@ local isLoaded = false
 local table = lib.table
 local ox_inventory = exports.ox_inventory
 
+SetTimeout(1000, function()
+	if not GetPlayer then
+		-- because some people want to use this on their vmenu servers or some shit lmao
+		-- only supports passcodes
+		warn('no compatible framework was loaded, most features will not work')
+		function GetPlayer(_) end
+	end
+end)
+
 function RemoveItem(playerId, item, slot)
 	local player = GetPlayer(playerId)
 
@@ -193,8 +202,6 @@ end
 local function isAuthorised(playerId, door, lockpick, passcode)
 	local player, authorised = GetPlayer(playerId)
 
-	if not player then return end
-
 	if lockpick and door.lockpick then
 		return 'lockpick'
 	end
@@ -203,16 +210,18 @@ local function isAuthorised(playerId, door, lockpick, passcode)
 		return true
 	end
 
-	if door.groups then
-		authorised = IsPlayerInGroup(player, door.groups)
-	end
+	if player then
+		if door.groups then
+			authorised = IsPlayerInGroup(player, door.groups)
+		end
 
-	if not authorised and door.characters then
-		authorised = table.contains(door.characters, GetCharacterId(player))
-	end
+		if not authorised and door.characters then
+			authorised = table.contains(door.characters, GetCharacterId(player))
+		end
 
-	if not authorised and door.items then
-		authorised = DoesPlayerHaveItem(player, door.items)
+		if not authorised and door.items then
+			authorised = DoesPlayerHaveItem(player, door.items)
+		end
 	end
 
 	if not authorised and Config.PlayerAceAuthorised then
@@ -258,6 +267,8 @@ RegisterNetEvent('ox_doorlock:setState', function(id, state, lockpick, passcode)
 		source = nil
 	end
 
+	state = (state == 1 or state == 0) and state or (state and 1 or 0)
+
 	if door then
 		local authorised = source == nil or isAuthorised(source, door, lockpick, passcode)
 
@@ -278,9 +289,11 @@ RegisterNetEvent('ox_doorlock:setState', function(id, state, lockpick, passcode)
 
 			return TriggerEvent('ox_doorlock:stateChanged', source, door.id, state == 1, type(authorised) == 'string' and authorised)
 		end
-	end
 
-    lib.notify(source, { type = 'error', icon = 'lock', description = state == 0 and 'cannot_unlock' or 'cannot_lock' })
+		if source then
+			lib.notify(source, { type = 'error', icon = 'lock', description = state == 0 and 'cannot_unlock' or 'cannot_lock' })
+		end
+	end
 end)
 
 RegisterNetEvent('ox_doorlock:getDoors', function()
