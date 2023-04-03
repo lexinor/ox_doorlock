@@ -6,7 +6,7 @@ do
 	local success, msg = lib.checkDependency('oxmysql', '2.4.0')
 	if not success then error(msg) end
 
-	success, msg = lib.checkDependency('ox_lib', '2.14.2')
+	success, msg = lib.checkDependency('ox_lib', '3.0.0')
 	if not success then error(msg) end
 end
 
@@ -194,38 +194,50 @@ function DoesPlayerHaveItem(player, items)
 				ox_inventory:RemoveItem(playerId, item.name, 1, nil, data.slot)
 			end
 
-			return true
+			return item.name
 		end
 	end
 end
 
-local function isAuthorised(playerId, door, lockpick, passcode)
-	local player, authorised = GetPlayer(playerId)
+local lockpickItems = {
+	{ name = 'lockpick' }
+}
 
-	if lockpick and door.lockpick then
-		return 'lockpick'
-	end
-
-	if passcode and passcode == door.passcode then
-		return true
-	end
+local function isAuthorised(playerId, door, lockpick)
+	local player = GetPlayer(playerId)
+	local authorised = door.passcode or false --[[@as boolean?]]
 
 	if player then
-		if door.groups then
-			authorised = IsPlayerInGroup(player, door.groups)
+		if lockpick then
+			return DoesPlayerHaveItem(player, lockpickItems)
 		end
 
-		if not authorised and door.characters then
-			authorised = table.contains(door.characters, GetCharacterId(player))
+		if door.characters then
+			return table.contains(door.characters, GetCharacterId(player))
+		end
+
+		if door.groups then
+			authorised = IsPlayerInGroup(player, door.groups) or nil
 		end
 
 		if not authorised and door.items then
-			authorised = DoesPlayerHaveItem(player, door.items)
+			authorised = DoesPlayerHaveItem(player, door.items) or nil
+		end
+
+		if authorised ~= nil and door.passcode then
+			authorised = door.passcode == lib.callback.await('ox_doorlock:inputPassCode', playerId)
 		end
 	end
 
 	if not authorised and Config.PlayerAceAuthorised then
 		authorised = IsPlayerAceAllowed(playerId, 'command.doorlock')
+	end
+
+	-- e.g. add_ace group.police "doorlock.mrpd locker rooms" allow
+	-- add_principal fivem:123456 group.police
+	-- or add_ace identifier.fivem:123456 "doorlock.mrpd locker rooms" allow
+	if not authorised and IsPlayerAceAllowed(playerId, ('doorlock.%s'):format(door.name)) then
+		authorised = true
 	end
 
 	return authorised
@@ -260,7 +272,7 @@ MySQL.ready(function()
 	isLoaded = true
 end)
 
-RegisterNetEvent('ox_doorlock:setState', function(id, state, lockpick, passcode)
+RegisterNetEvent('ox_doorlock:setState', function(id, state, lockpick)
 	local door = doors[id]
 
 	if source == '' then
@@ -270,7 +282,7 @@ RegisterNetEvent('ox_doorlock:setState', function(id, state, lockpick, passcode)
 	state = (state == 1 or state == 0) and state or (state and 1 or 0)
 
 	if door then
-		local authorised = source == nil or isAuthorised(source, door, lockpick, passcode)
+		local authorised = source == nil or isAuthorised(source, door, lockpick)
 
 		if authorised then
 			door.state = state
@@ -337,7 +349,16 @@ RegisterNetEvent('ox_doorlock:breakLockpick', function()
 	RemoveItem(source, 'lockpick')
 end)
 
-
-lib.addCommand(Config.CommandPrincipal, 'doorlock', function(source, args)
+lib.addCommand('doorlock', {
+    help = locale('create_modify_lock'),
+    params = {
+        {
+            name = 'closest',
+            help = locale('command_closest'),
+			optional = true,
+        },
+    },
+    restricted = Config.CommandPrincipal
+}, function(source, args)
 	TriggerClientEvent('ox_doorlock:triggeredCommand', source, args.closest)
-end, {'closest'}, locale('create_modify_lock'))
+end)

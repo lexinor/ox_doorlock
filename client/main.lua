@@ -2,6 +2,11 @@ if not LoadResourceFile(lib.name, 'web/build/index.html') then
 	error('Unable to load UI. Build ox_doorlock or download the latest release.\n	^3https://github.com/overextended/ox_doorlock/releases/latest/download/ox_doorlock.zip^0')
 end
 
+do
+	local success, msg = lib.checkDependency('ox_lib', '3.0.0')
+	if not success then error(msg) end
+end
+
 lib.locale()
 TriggerServerEvent('ox_doorlock:getDoors')
 
@@ -195,15 +200,17 @@ RegisterNetEvent('ox_doorlock:editDoorlock', function(id, data)
 
 	if double then
 		for i = 1, 2 do
+			local doorHash = double[i].hash
+
 			if data then
-				if data.doorRate or not data.auto then
-					DoorSystemSetAutomaticRate(double[i].hash, door.doorRate or 10.0, false, false)
+				if data.doorRate or door.doorRate or not data.auto then
+					DoorSystemSetAutomaticRate(doorHash, data.doorRate or door.doorRate and 0.0 or 10.0, false, false)
 				end
 
-				DoorSystemSetDoorState(double[i].hash, doorState, false, false)
+				DoorSystemSetDoorState(doorHash, doorState, false, false)
 			else
-				DoorSystemSetDoorState(double[i].hash, 4, false, false)
-				DoorSystemSetDoorState(double[i].hash, 0, false, false)
+				DoorSystemSetDoorState(doorHash, 4, false, false)
+				DoorSystemSetDoorState(doorHash, 0, false, false)
 
 				if double[i].entity then
 					Entity(double[i].entity).state.doorId = nil
@@ -212,8 +219,8 @@ RegisterNetEvent('ox_doorlock:editDoorlock', function(id, data)
 		end
 	else
 		if data then
-			if data.doorRate or not data.auto then
-				DoorSystemSetAutomaticRate(door.hash, door.doorRate or 10.0, false, false)
+			if data.doorRate or door.doorRate or not data.auto then
+				DoorSystemSetAutomaticRate(door.hash, data.doorRate or door.doorRate and 0.0 or 10.0, false, false)
 			end
 
 			DoorSystemSetDoorState(door.hash, doorState, false, false)
@@ -238,26 +245,28 @@ RegisterNetEvent('ox_doorlock:editDoorlock', function(id, data)
 end)
 
 ClosestDoor = nil
+
+lib.callback.register('ox_doorlock:inputPassCode', function()
+	return ClosestDoor?.passcode and lib.inputDialog(locale('door_lock'), {
+		{
+			type = 'input',
+			label = locale('passcode'),
+			password = true,
+			icon = 'lock'
+		},
+	})?[1]
+end)
+
 local lastTriggered = 0
 
 local function useClosestDoor()
 	if not ClosestDoor then return false end
 
-	if ClosestDoor.passcode then
-		local input = lib.inputDialog(locale('door_lock'), {
-			{ type = "input", label = locale("passcode"), password = true, icon = 'lock' },
-		})
+	local gameTimer = GetGameTimer()
 
-		if input then
-			TriggerServerEvent('ox_doorlock:setState', ClosestDoor.id, ClosestDoor.state == 1 and 0 or 1, false, input[1])
-		end
-	else
-		local gameTimer = GetGameTimer()
-
-		if gameTimer - lastTriggered > 500 then
-			lastTriggered = gameTimer
-			TriggerServerEvent('ox_doorlock:setState', ClosestDoor.id, ClosestDoor.state == 1 and 0 or 1)
-		end
+	if gameTimer - lastTriggered > 500 then
+		lastTriggered = gameTimer
+		TriggerServerEvent('ox_doorlock:setState', ClosestDoor.id, ClosestDoor.state == 1 and 0 or 1)
 	end
 end
 
